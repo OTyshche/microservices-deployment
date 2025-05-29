@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KubeShop</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        .product-list, .cart, .order-details { margin-top: 30px; border: 1px solid #ccc; padding: 20px; }
+        .product-item, .cart-item { margin-bottom: 10px; padding: 5px; border-bottom: 1px dashed #eee; }
+        button { margin-left: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Добро пожаловать в KubeShop!</h1>
+
+    <div class="product-list">
+        <h2>Товары</h2>
+        <div id="products">Загрузка товаров...</div>
+    </div>
+
+    <div class="cart">
+        <h2>Ваша корзина (User: <span id="userIdDisplay">test_user</span>)</h2>
+        <div id="cart-items">Корзина пуста.</div>
+        <button onclick="checkout()">Оформить заказ</button>
+    </div>
+
+    <div class="order-details">
+        <h2>Последний заказ</h2>
+        <div id="last-order">Нет оформленных заказов.</div>
+    </div>
+
+    <script>
+        const userId = "test_user"; // Имитация ID пользователя
+        document.getElementById('userIdDisplay').innerText = userId;
+
+        const CATALOG_SERVICE_URL = "http://localhost:8001"; // Будет заменено на Service IP/DNS в K8s
+        const CART_SERVICE_URL = "http://localhost:8002"; // Будет заменено на Service IP/DNS в K8s
+        const ORDER_SERVICE_URL = "http://localhost:8003"; // Будет заменено на Service IP/DNS в K8s
+
+        async function fetchProducts() {
+            try {
+                const response = await fetch(`${CATALOG_SERVICE_URL}/products`);
+                const products = await response.json();
+                const productsDiv = document.getElementById('products');
+                productsDiv.innerHTML = '';
+                if (products.length === 0) {
+                    productsDiv.innerText = 'Нет товаров в каталоге.';
+                    return;
+                }
+                products.forEach(product => {
+                    const div = document.createElement('div');
+                    div.className = 'product-item';
+                    div.innerHTML = `
+                        ${product.name} - $${product.price} (В наличии: <span class="math-inline">\{product\.stock\}\)
+                            <button onclick="addToCart({product.id}, 1)">Добавить в корзину</button>
+`;
+productsDiv.appendChild(div);
+});
+} catch (error) {
+console.error('Ошибка при загрузке товаров:', error);
+document.getElementById('products').innerText = 'Ошибка при загрузке товаров.';
+}
+}
+
+        async function fetchCart() {
+            try {
+                const response = await fetch(`<span class="math-inline">\{CART\_SERVICE\_URL\}/cart/</span>{userId}`);
+                const cartItems = await response.json();
+                const cartItemsDiv = document.getElementById('cart-items');
+                cartItemsDiv.innerHTML = '';
+                if (cartItems.length === 0) {
+                    cartItemsDiv.innerText = 'Корзина пуста.';
+                    return;
+                }
+                cartItems.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'cart-item';
+                    div.innerHTML = `
+                        Продукт ID: ${item.product_id}, Количество: <span class="math-inline">\{item\.quantity\}
+<button onclick="removeFromCart({item.product_id})">Удалить</button>
+`;
+cartItemsDiv.appendChild(div);
+});
+} catch (error) {
+console.error('Ошибка при загрузке корзины:', error);
+document.getElementById('cart-items').innerText = 'Ошибка при загрузке корзины.';
+}
+}
+
+        async function addToCart(productId, quantity) {
+            try {
+                await fetch(`<span class="math-inline">\{CART\_SERVICE\_URL\}/cart/</span>{userId}/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ productId, quantity })
+                });
+                alert('Товар добавлен в корзину!');
+                fetchCart();
+            } catch (error) {
+                console.error('Ошибка при добавлении в корзину:', error);
+                alert('Ошибка при добавлении в корзину.');
+            }
+        }
+
+        async function removeFromCart(productId) {
+            try {
+                await fetch(`<span class="math-inline">\{CART\_SERVICE\_URL\}/cart/</span>{userId}/remove`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ productId })
+                });
+                alert('Товар удален из корзины!');
+                fetchCart();
+            } catch (error) {
+                console.error('Ошибка при удалении из корзины:', error);
+                alert('Ошибка при удалении из корзины.');
+            }
+        }
+
+        async function checkout() {
+            try {
+                const response = await fetch(`${ORDER_SERVICE_URL}/orders/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+                const result = await response.text(); // Может быть JSON, может быть plain text
+                if (response.ok) {
+                    alert('Заказ успешно оформлен: ' + result);
+                    document.getElementById('last-order').innerText = 'Заказ успешно оформлен: ' + result;
+                    fetchCart(); // Обновить корзину после оформления заказа
+                } else {
+                    alert('Ошибка при оформлении заказа: ' + result);
+                }
+            } catch (error) {
+                console.error('Ошибка при оформлении заказа:', error);
+                alert('Ошибка при оформлении заказа. Проверьте консоль.');
+            }
+        }
+
+        // Инициализация при загрузке страницы
+        fetchProducts();
+        fetchCart();
+    </script>
+</body>
+</html>

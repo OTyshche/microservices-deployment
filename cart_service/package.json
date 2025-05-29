@@ -1,0 +1,13 @@
+{
+  "name": "cart-service",
+  "version": "1.0.0",
+  "description": "Microservice for managing user carts",
+  "main": "cart_service.js",
+  "scripts": {
+    "start": "node cart_service.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "pg": "^8.11.3"
+  }
+}
